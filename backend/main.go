@@ -276,6 +276,19 @@ func checkLink(link string) int {
 
 func handleUrlDetail(c *gin.Context) {
 	id := c.Param("id")
+
+	var title, htmlVersion string
+	var internalLinks, externalLinks int
+	err := db.QueryRow(`
+		SELECT title, html_version, internal_links, external_links
+		FROM urls
+		WHERE id = ?
+	`, id).Scan(&title, &htmlVersion, &internalLinks, &externalLinks)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch URL metadata"})
+		return
+	}
+
 	rows, err := db.Query(`SELECT level, count FROM headings WHERE url_id = ?`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -291,7 +304,13 @@ func handleUrlDetail(c *gin.Context) {
 		headings[level] = count
 	}
 
-	bl, _ := db.Query(`SELECT link, status FROM broken_links WHERE url_id = ?`, id)
+	bl, err := db.Query(`SELECT link, status FROM broken_links WHERE url_id = ?`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch broken links"})
+		return
+	}
+	defer bl.Close()
+
 	var broken []BrokenLink
 	for bl.Next() {
 		var l string
@@ -301,8 +320,12 @@ func handleUrlDetail(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"headings":     headings,
-		"broken_links": broken,
+		"title":          title,
+		"html_version":   htmlVersion,
+		"internal_links": internalLinks,
+		"external_links": externalLinks,
+		"headings":       headings,
+		"broken_links":   broken,
 	})
 }
 
