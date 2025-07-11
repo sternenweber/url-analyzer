@@ -53,6 +53,7 @@ func main() {
 	r.POST("/crawl", handleCrawl)
 	r.GET("/urls", handlers.GetURLsHandler(db))
 	r.GET("/urls/:id", handleUrlDetail)
+	r.DELETE("/urls/:id", deleteURLHandler)
 
 	r.Run(":8081")
 }
@@ -303,4 +304,34 @@ func handleUrlDetail(c *gin.Context) {
 		"headings":     headings,
 		"broken_links": broken,
 	})
+}
+
+func deleteURLHandler(c *gin.Context) {
+	id := c.Param("id")
+
+	_, err := db.Exec(`DELETE FROM broken_links WHERE url_id = ?`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete broken_links"})
+		return
+	}
+
+	_, err = db.Exec(`DELETE FROM headings WHERE url_id = ?`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete headings"})
+		return
+	}
+
+	res, err := db.Exec(`DELETE FROM urls WHERE id = ?`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete url"})
+		return
+	}
+
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "url not found"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
