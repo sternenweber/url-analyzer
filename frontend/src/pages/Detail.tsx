@@ -1,93 +1,160 @@
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
   CircularProgress,
-  Container,
+  Alert,
   List,
   ListItem,
-  ListItemText,
-  Paper,
-  Typography
 } from '@mui/material';
-import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Legend } from 'recharts';
 
 const API_BASE = 'http://localhost:8081';
-const COLORS = ['#0088FE', '#FF8042'];
+const COLORS = ['#FF8042', '#0088FE'];
 
-const Detail = () => {
+const Detail: React.FC = () => {
   const { id } = useParams();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['url', id],
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    enabled: !!id,
+    queryKey: ['urlDetail', id],
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE}/urls/${id}`, {
-        headers: { Authorization: 'Bearer your-secret-token' },
-      });
-      return res.data;
-    }
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      try {
+        const res = await axios.get(`${API_BASE}/urls/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        return res.data;
+      } catch (err: any) {
+        if (axios.isAxiosError(err)) {
+          throw new Error(
+            err.response?.data?.error || `Request failed with status ${err.response?.status}`
+          );
+        }
+        throw new Error('Failed to fetch data');
+      }
+    },
   });
 
-  if (isLoading || !data) return <CircularProgress />;
+  if (!id) {
+    return (
+      <Box p={4}>
+        <Alert severity="error">No ID provided in the route.</Alert>
+      </Box>
+    );
+  }
 
-  const chartData = [
-    { name: 'Internal Links', value: data.internal || 0 },
-    { name: 'External Links', value: data.external || 0 }
+  if (isLoading) {
+    return (
+      <Box p={4}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Box p={4}>
+        <Alert severity="error">
+          Failed to load details: {(error as Error)?.message || 'Unknown error'}
+        </Alert>
+      </Box>
+    );
+  }
+
+  const pieData = [
+    { name: 'External Links', value: data.external_links || 0 },
+    { name: 'Internal Links', value: data.internal_links || 0 },
   ];
 
   return (
-    <Container maxWidth="md">
+    <Box p={4}>
       <Typography variant="h4" gutterBottom>
         URL Detail View
       </Typography>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6">Headings</Typography>
-        <List>
-          {Object.entries(data.headings || {}).map(([level, count]) => (
-            <ListItem key={level}>
-              <ListItemText primary={`${level.toUpperCase()}: ${count}`} />
-            </ListItem>
-          ))}
-        </List>
-      </Paper>
+      {/* Headings */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6">Headings</Typography>
+          {data.headings && Object.keys(data.headings).length > 0 ? (
+            Object.entries(data.headings).map(([tag, count]) => (
+              <Typography key={tag}>
+                {tag.toUpperCase()}: {String(count)}
+              </Typography>
+            ))
+          ) : (
+            <Typography>No headings found.</Typography>
+          )}
+        </CardContent>
+      </Card>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6">Link Chart</Typography>
-        <PieChart width={300} height={200}>
-          <Pie
-            data={chartData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={70}
-            fill="#8884d8"
-            label
-          >
-            {chartData.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      </Paper>
+      {/* Link Chart */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Link Chart
+          </Typography>
+          <PieChart width={300} height={250}>
+            <Pie
+              data={pieData}
+              cx="50%"
+              cy="50%"
+              label
+              outerRadius={80}
+              dataKey="value"
+            >
+              {pieData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={COLORS[index % COLORS.length]}
+                  name={entry.name}
+                />
+              ))}
+            </Pie>
+            <Legend verticalAlign="bottom" height={36} />
+          </PieChart>
+        </CardContent>
+      </Card>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6">Broken Links</Typography>
-        <List>
-          {data.broken_links?.map((bl: any, idx: number) => (
-            <ListItem key={idx}>
-              <ListItemText
-                primary={bl.link}
-                secondary={`Status: ${bl.status}`}
-              />
-            </ListItem>
-          )) || <Typography>No broken links found.</Typography>}
-        </List>
-      </Paper>
-    </Container>
+      {/* Broken Links */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Broken Links
+          </Typography>
+          {data.broken_links && data.broken_links.length > 0 ? (
+            <List>
+              {data.broken_links.map((link: any, index: number) => (
+                <ListItem key={index}>
+                  <Typography>
+                    {link.url} – Status: {link.status || 'unknown'}
+                  </Typography>
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Typography>No broken links found.</Typography>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
   );
 };
 
