@@ -124,7 +124,6 @@ const Dashboard: React.FC = () => {
           {crawlMutation.isPending ? 'Analyzing...' : 'Analyze'}
         </Button>
       </Box>
-
       {selectionIds.size > 0 && (
         <Box display="flex" gap={2} mb={2}>
           <Button
@@ -132,18 +131,21 @@ const Dashboard: React.FC = () => {
             color="warning"
             onClick={async () => {
               await Promise.all(
-                Array.from(selectionIds).map((id) =>
-                  axios.post(
+                Array.from(selectionIds).map(async (id) => {
+                const urlEntry = urls?.find((entry) => entry.id === id);
+                if (urlEntry) {
+                  return axios.post(
                     `${API_BASE}/crawl`,
-                    { id },
+                    { url: urlEntry.url }, 
                     {
                       headers: {
                         Authorization: 'Bearer your-secret-token',
                       },
                     }
-                  )
-                )
-              );
+                  );
+                }
+              })
+            );
               queryClient.invalidateQueries({ queryKey: ['urls'] });
             }}
           >
