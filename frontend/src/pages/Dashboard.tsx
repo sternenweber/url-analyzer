@@ -10,14 +10,17 @@ import {
   Chip,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import type { GridColDef } from '@mui/x-data-grid';
+import type { GridColDef, GridRowSelectionModel, GridRowId } from '@mui/x-data-grid';
+import { useNavigate } from 'react-router-dom';
 import type { UrlEntry } from '../types/url';
 
 const API_BASE = 'http://localhost:8081';
 
 const Dashboard: React.FC = () => {
   const [newUrl, setNewUrl] = useState('');
+  const [selectionIds, setSelectionIds] = useState<Set<GridRowId>>(new Set());
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: urls, isLoading, isError } = useQuery<UrlEntry[]>({
     queryKey: ['urls'],
@@ -83,7 +86,7 @@ const Dashboard: React.FC = () => {
               ? 'warning'
               : params.value === 'error'
               ? 'error'
-              : params.value.toLowerCase() === 'queued'
+              : params.value?.toLowerCase() === 'queued'
               ? 'info'
               : 'default'
           }
@@ -96,7 +99,7 @@ const Dashboard: React.FC = () => {
       headerName: 'Last Crawled',
       flex: 1,
       valueFormatter: (params: { value: string }) =>
-      params.value ? new Date(params.value).toLocaleString() : '—',
+        params.value ? new Date(params.value).toLocaleString() : '—',
     },
   ];
 
@@ -122,6 +125,51 @@ const Dashboard: React.FC = () => {
         </Button>
       </Box>
 
+      {selectionIds.size > 0 && (
+        <Box display="flex" gap={2} mb={2}>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={async () => {
+              await Promise.all(
+                Array.from(selectionIds).map((id) =>
+                  axios.post(
+                    `${API_BASE}/crawl`,
+                    { id },
+                    {
+                      headers: {
+                        Authorization: 'Bearer your-secret-token',
+                      },
+                    }
+                  )
+                )
+              );
+              queryClient.invalidateQueries({ queryKey: ['urls'] });
+            }}
+          >
+            Re-run Selected
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={async () => {
+              await Promise.all(
+                Array.from(selectionIds).map((id) =>
+                  axios.delete(`${API_BASE}/urls/${id}`, {
+                    headers: {
+                      Authorization: 'Bearer your-secret-token',
+                    },
+                  })
+                )
+              );
+              queryClient.invalidateQueries({ queryKey: ['urls'] });
+            }}
+          >
+            Delete Selected
+          </Button>
+        </Box>
+      )}
+
       {isLoading ? (
         <Typography>Loading...</Typography>
       ) : isError ? (
@@ -134,9 +182,17 @@ const Dashboard: React.FC = () => {
             rows={urls}
             columns={columns}
             getRowId={(row: UrlEntry) => row.id}
+            checkboxSelection
+            onRowClick={(params) => navigate(`/detail/${params.row.id}`)}
+            onRowSelectionModelChange={(newModel) => {
+              const model = newModel as GridRowSelectionModel;
+              if ('ids' in model) {
+                setSelectionIds(model.ids);
+              }
+            }}
             initialState={{
               pagination: {
-              paginationModel: { pageSize: 5, page: 0 },
+                paginationModel: { pageSize: 5, page: 0 },
               },
             }}
             pageSizeOptions={[5, 10, 20]}
