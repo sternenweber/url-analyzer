@@ -20,6 +20,7 @@ import (
 
 var db *sql.DB
 
+// handles preflight OPTIONS requests with a 204 No Content response.
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -58,6 +59,7 @@ func main() {
 	r.Run(":8081")
 }
 
+// checks for a valid Authorization header and blocks unauthorized requests.
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("Authorization")
@@ -69,6 +71,7 @@ func authMiddleware() gin.HandlerFunc {
 	}
 }
 
+// handles incoming crawl requests by validating the URL and starting the crawl process asynchronously.
 func handleCrawl(c *gin.Context) {
 	type Req struct {
 		Url string `json:"url" binding:"required,url"`
@@ -89,6 +92,7 @@ func handleCrawl(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"message": "Crawling started", "url": req.Url})
 }
 
+// inserts a URL, fetches its HTML, analyzes content, and updates the DB.
 func processCrawl(target string) {
 	res, err := db.Exec(`
 		INSERT INTO urls (
@@ -186,6 +190,7 @@ type BrokenLink struct {
 	Status int
 }
 
+// analyzeHTML extracts title, headings, links, broken links, and login form info.
 func analyzeHTML(htmlContent []byte, base string) (
 	title string,
 	headings map[string]int,
