@@ -21,3 +21,17 @@ A full-stack web application to analyze websites, extract metadata, and display 
 
 ---
 
+## Getting Started
+
+### Backend
+
+```bash
+go run main.go
+```
+
+### Frontend
+
+```bash
+npm run dev
+```
+
