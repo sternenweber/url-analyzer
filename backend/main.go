@@ -20,7 +20,6 @@ import (
 
 var db *sql.DB
 
-// handles preflight OPTIONS requests with a 204 No Content response.
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -31,7 +30,6 @@ func corsMiddleware() gin.HandlerFunc {
 			c.AbortWithStatus(204)
 			return
 		}
-
 		c.Next()
 	}
 }
