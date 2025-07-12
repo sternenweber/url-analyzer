@@ -144,7 +144,7 @@ const Detail: React.FC = () => {
               {data.broken_links.map((link: any, index: number) => (
                 <ListItem key={index}>
                   <Typography>
-                    {link.url} – Status: {link.status || 'unknown'}
+                    {link.url} – Status: {link.status != null ? link.status : 'unknown'}
                   </Typography>
                 </ListItem>
               ))}
