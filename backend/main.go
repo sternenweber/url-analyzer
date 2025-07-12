@@ -218,9 +218,10 @@ func analyzeHTML(htmlContent []byte, base string) (
 				}
 
 			case "form":
+			case "input":
 				for hasAttr {
 					key, val, more := z.TagAttr()
-					if string(key) == "action" && strings.Contains(strings.ToLower(string(val)), "login") {
+					if string(key) == "type" && strings.ToLower(string(val)) == "password" {
 						hasLogin = true
 					}
 					hasAttr = more
