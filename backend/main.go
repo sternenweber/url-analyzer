@@ -90,7 +90,6 @@ func handleCrawl(c *gin.Context) {
 }
 
 func processCrawl(target string) {
-	// Step 1: Insert initial row with status 'queued'
 	res, err := db.Exec(`
 		INSERT INTO urls (
 			url, title, html_version, has_login, internal_links, external_links, status, created_at
@@ -101,23 +100,25 @@ func processCrawl(target string) {
 	}
 	urlID, _ := res.LastInsertId()
 
-	// Step 2: Update status to 'running'
 	_, err = db.Exec(`UPDATE urls SET status = 'running' WHERE id = ?`, urlID)
 	if err != nil {
 		log.Println("error updating status to running:", err)
 		return
 	}
 
-	// Step 3: HTTP GET the URL
 	resp, err := http.Get(target)
-	if err != nil || resp.StatusCode >= 400 {
-		log.Println("HTTP error:", err)
+	if err != nil {
+		log.Printf("HTTP request failed for %s: %v", target, err)
+		_, _ = db.Exec(`UPDATE urls SET status = 'error', last_crawled = NOW() WHERE id = ?`, urlID)
+		return
+	}
+	if resp.StatusCode >= 400 {
+		log.Printf("HTTP request returned status %d for URL: %s", resp.StatusCode, target)
 		_, _ = db.Exec(`UPDATE urls SET status = 'error', last_crawled = NOW() WHERE id = ?`, urlID)
 		return
 	}
 	defer resp.Body.Close()
 
-	// Step 4: Decode body to UTF-8
 	contentType := resp.Header.Get("Content-Type")
 	decodedReader, err := charset.NewReader(resp.Body, contentType)
 	if err != nil {
@@ -133,7 +134,6 @@ func processCrawl(target string) {
 		return
 	}
 
-	// Step 5: Analyze HTML
 	htmlContent := string(bodyBytes)
 	version := detectHTMLVersion(htmlContent)
 
@@ -143,7 +143,6 @@ func processCrawl(target string) {
 		title = title[:255]
 	}
 
-	// Step 6: Update record with parsed data
 	_, err = db.Exec(`
 		UPDATE urls
 		SET title = ?, html_version = ?, has_login = ?, 
@@ -156,7 +155,6 @@ func processCrawl(target string) {
 		return
 	}
 
-	// Step 7: Save headings
 	for level, count := range headings {
 		_, err := db.Exec(`INSERT INTO headings (url_id, level, count) VALUES (?, ?, ?)`, urlID, level, count)
 		if err != nil {
@@ -164,7 +162,6 @@ func processCrawl(target string) {
 		}
 	}
 
-	// Step 8: Save broken links
 	for _, b := range broken {
 		_, err := db.Exec(`INSERT INTO broken_links (url_id, link, status) VALUES (?, ?, ?)`, urlID, b.Link, b.Status)
 		if err != nil {
