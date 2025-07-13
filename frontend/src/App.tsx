@@ -7,8 +7,14 @@ import Detail from './pages/Detail';
 
 const queryClient = new QueryClient();
 
+if (!sessionStorage.getItem('hasRefreshed')) {
+  sessionStorage.setItem('hasRefreshed', '1');
+  window.location.reload();
+}
+
 const App: React.FC = () => {
   localStorage.setItem('token', 'your-secret-token');
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
