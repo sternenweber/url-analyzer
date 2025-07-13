@@ -8,6 +8,7 @@ import Detail from './pages/Detail';
 const queryClient = new QueryClient();
 
 const App: React.FC = () => {
+  localStorage.setItem('token', 'your-secret-token');
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
