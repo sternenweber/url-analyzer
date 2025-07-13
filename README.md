@@ -39,9 +39,5 @@ npm run dev
 
 ## Authorization
 This app uses a simple token-based authorization mechanism.
-To enable full frontend functionality, you must set the auth token in your browser:
 
-```bash
-localStorage.setItem('token', 'your-secret-token');
-```
 
