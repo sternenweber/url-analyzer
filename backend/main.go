@@ -2,32 +2,74 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"url-analyzer/handlers"
 
-	"golang.org/x/net/html/charset"
-
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/charset"
 )
 
 var db *sql.DB
 
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+// getenv returns the env value or a default.
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+// BuildDSN returns a MySQL DSN either from DB_DSN or from parts.
+// In Docker, DB_HOST should be "mysql" (service name).
+func BuildDSN() string {
+	if dsn := os.Getenv("DB_DSN"); dsn != "" {
+		return dsn
+	}
+	user := getenv("DB_USER", "root")
+	pass := getenv("DB_PASSWORD", "password")
+	host := getenv("DB_HOST", "127.0.0.1") // docker-compose sets this to "mysql"
+	port := getenv("DB_PORT", "3306")
+	name := getenv("DB_NAME", "crawler")
+	params := getenv("DB_PARAMS", "charset=utf8mb4&parseTime=true&loc=Local")
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", user, pass, host, port, name, params)
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	allowedOrigin := getenv("ALLOWED_ORIGIN", "*") // e.g., "http://localhost:3000"
+	allowedMethods := getenv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS")
+	allowedHeaders := getenv("ALLOWED_HEADERS", "Authorization, Content-Type")
+
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		c.Writer.Header().Set("Access-Control-Allow-Methods", allowedMethods)
+		c.Writer.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
+
+		// Preflight
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
+}
+
+// checks for a valid Authorization header and blocks unauthorized requests.
+func authMiddleware() gin.HandlerFunc {
+	expected := getenv("AUTH_TOKEN", "your-secret-token") // set in compose/prod
+	return func(c *gin.Context) {
+		token := c.GetHeader("Authorization")
+		if token != "Bearer "+expected {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
 		c.Next()
@@ -35,7 +77,8 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 func main() {
-	dsn := "root:password@tcp(127.0.0.1:3306)/crawler?charset=utf8mb4&parseTime=true"
+	// Open DB
+	dsn := BuildDSN()
 	var err error
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
@@ -45,6 +88,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Router
 	r := gin.Default()
 	r.Use(corsMiddleware())
 	r.Use(authMiddleware())
@@ -54,18 +98,10 @@ func main() {
 	r.GET("/urls/:id", handleUrlDetail)
 	r.DELETE("/urls/:id", deleteURLHandler)
 
-	r.Run(":8081")
-}
-
-// checks for a valid Authorization header and blocks unauthorized requests.
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.GetHeader("Authorization")
-		if token != "Bearer your-secret-token" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-		c.Next()
+	// Run server
+	port := getenv("PORT", "8080") // compose maps 8080:8080
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
 	}
 }
 
