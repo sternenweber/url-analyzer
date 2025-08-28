@@ -29,15 +29,13 @@ func getenv(key, def string) string {
 	return def
 }
 
-// BuildDSN returns a MySQL DSN either from DB_DSN or from parts.
-// In Docker, DB_HOST should be "mysql" (service name).
 func BuildDSN() string {
 	if dsn := os.Getenv("DB_DSN"); dsn != "" {
 		return dsn
 	}
 	user := getenv("DB_USER", "root")
 	pass := getenv("DB_PASSWORD", "password")
-	host := getenv("DB_HOST", "127.0.0.1") // docker-compose sets this to "mysql"
+	host := getenv("DB_HOST", "127.0.0.1")
 	port := getenv("DB_PORT", "3306")
 	name := getenv("DB_NAME", "crawler")
 	params := getenv("DB_PARAMS", "charset=utf8mb4&parseTime=true&loc=Local")
@@ -45,7 +43,7 @@ func BuildDSN() string {
 }
 
 func corsMiddleware() gin.HandlerFunc {
-	allowedOrigin := getenv("ALLOWED_ORIGIN", "*") // e.g., "http://localhost:3000"
+	allowedOrigin := getenv("ALLOWED_ORIGIN", "*")
 	allowedMethods := getenv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS")
 	allowedHeaders := getenv("ALLOWED_HEADERS", "Authorization, Content-Type")
 
@@ -54,7 +52,6 @@ func corsMiddleware() gin.HandlerFunc {
 		c.Writer.Header().Set("Access-Control-Allow-Methods", allowedMethods)
 		c.Writer.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 
-		// Preflight
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
