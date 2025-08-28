@@ -1,17 +1,22 @@
 services:
   frontend:
     build: ./frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
+    ports: ["3000:80"]
+    depends_on: [backend]
 
   backend:
     build: ./backend
-    ports:
-      - "8080:8080"
+    ports: ["8080:8080"]
+    environment:
+      PORT: "8080"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: password
+      DB_NAME: crawler
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
 
   mysql:
     image: mysql:8
@@ -19,11 +24,15 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: crawler
-    ports:
-      - "3306:3306"
+    # 🚫 removed ports mapping
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-ppassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   mysql_data: {}
