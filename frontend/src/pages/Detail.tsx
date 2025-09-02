@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { PieChart, Pie, Cell, Legend } from 'recharts';
 
-const API_BASE = 'http://localhost:8081';
+const API_BASE = 'http://localhost:8080';
 const COLORS = ['#FF8042', '#0088FE'];
 
 const Detail: React.FC = () => {

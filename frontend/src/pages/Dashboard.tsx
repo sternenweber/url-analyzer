@@ -14,7 +14,7 @@ import type { GridColDef, GridRowSelectionModel, GridRowId } from '@mui/x-data-g
 import { useNavigate } from 'react-router-dom';
 import type { UrlEntry } from '../types/url';
 
-const API_BASE = 'http://localhost:8081';
+const API_BASE = 'http://localhost:8080';
 
 const Dashboard: React.FC = () => {
   const [newUrl, setNewUrl] = useState('');

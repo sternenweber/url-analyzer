@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
-const API_BASE = 'http://localhost:8081';
+const API_BASE = 'http://localhost:8080';
 
 const COLORS = ['#0088FE', '#FF8042', '#FFBB28'];
 

@@ -5,7 +5,7 @@ const UrlList = () => {
 
   useEffect(() => {
     const fetchUrls = async () => {
-      const res = await fetch("http://localhost:8081/urls", {
+      const res = await fetch("http://localhost:8080/urls", {
         headers: {
           "Authorization": "Bearer your-secret-token"
         }
