@@ -1,6 +1,11 @@
 services:
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Vite reads only VITE_* at build time
+        VITE_API_BASE_URL: "http://localhost:8080"
+        VITE_API_TOKEN: "your-secret-token"
     ports: ["3000:80"]
     depends_on: [backend]
 
@@ -9,11 +14,15 @@ services:
     ports: ["8080:8080"]
     environment:
       PORT: "8080"
+      # DB config
       DB_HOST: mysql
       DB_PORT: "3306"
       DB_USER: root
       DB_PASSWORD: password
       DB_NAME: crawler
+      # API auth & CORS
+      AUTH_TOKEN: "your-secret-token"
+      ALLOWED_ORIGIN: "http://localhost:3000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -24,7 +33,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: crawler
-    # 🚫 removed ports mapping
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
