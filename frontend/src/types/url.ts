@@ -7,6 +7,6 @@ export interface UrlEntry {
   internal_links: number;
   external_links: number;
   status: string;
-  last_crawled?: string;
+  last_crawled: string | null;
   created_at: string;
 }
