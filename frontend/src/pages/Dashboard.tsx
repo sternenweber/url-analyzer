@@ -10,7 +10,11 @@ import {
   Chip,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import type { GridColDef, GridRowSelectionModel, GridRowId } from '@mui/x-data-grid';
+import type {
+  GridColDef,
+  GridRowSelectionModel,
+  GridRowId,
+} from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import type { UrlEntry } from '../types/url';
 
@@ -35,7 +39,7 @@ const Dashboard: React.FC = () => {
 
   const crawlMutation = useMutation({
     mutationFn: async ({ url }: { url: string }) => {
-      await axios.post(
+      return axios.post(
         `${API_BASE}/crawl`,
         { url },
         {
@@ -43,9 +47,38 @@ const Dashboard: React.FC = () => {
         }
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['urls'] });
+    onMutate: async ({ url }) => {
+      await queryClient.cancelQueries({ queryKey: ['urls'] });
+
+      const prev = queryClient.getQueryData<UrlEntry[]>(['urls']);
+
+      const optimistic: UrlEntry = {
+        id: Date.now(),
+        url,
+        title: '',
+        html_version: '',
+        has_login: false,
+        internal_links: 0,
+        external_links: 0,
+        status: 'queued',
+        created_at: new Date().toISOString(),
+        last_crawled: null, 
+      };
+
+      queryClient.setQueryData<UrlEntry[]>(['urls'], (old) =>
+        old ? [optimistic, ...old] : [optimistic]
+      );
+
       setNewUrl('');
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(['urls'], ctx.prev);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['urls'] });
     },
   });
 
@@ -78,7 +111,7 @@ const Dashboard: React.FC = () => {
       width: 120,
       renderCell: (params) => (
         <Chip
-          label={params.value}
+          label={params.value || '—'}
           color={
             params.value === 'done'
               ? 'success'
@@ -98,9 +131,15 @@ const Dashboard: React.FC = () => {
       field: 'last_crawled',
       headerName: 'Last Crawled',
       flex: 1,
-      valueFormatter: (params: { value: string }) =>
-        params.value ? new Date(params.value).toLocaleString() : '—',
-    },
+      valueFormatter: (params: { value?: string | null }) => {
+        if (!params || !params.value) return '—';   
+        try {
+          return new Date(params.value).toLocaleString();
+        } catch {
+          return '—';
+        }
+      },
+    }
   ];
 
   return (
@@ -124,6 +163,7 @@ const Dashboard: React.FC = () => {
           {crawlMutation.isPending ? 'Analyzing...' : 'Analyze'}
         </Button>
       </Box>
+
       {selectionIds.size > 0 && (
         <Box display="flex" gap={2} mb={2}>
           <Button
@@ -132,20 +172,20 @@ const Dashboard: React.FC = () => {
             onClick={async () => {
               await Promise.all(
                 Array.from(selectionIds).map(async (id) => {
-                const urlEntry = urls?.find((entry) => entry.id === id);
-                if (urlEntry) {
-                  return axios.post(
-                    `${API_BASE}/crawl`,
-                    { url: urlEntry.url }, 
-                    {
-                      headers: {
-                        Authorization: 'Bearer your-secret-token',
-                      },
-                    }
-                  );
-                }
-              })
-            );
+                  const urlEntry = urls?.find((entry) => entry.id === id);
+                  if (urlEntry) {
+                    return axios.post(
+                      `${API_BASE}/crawl`,
+                      { url: urlEntry.url },
+                      {
+                        headers: {
+                          Authorization: 'Bearer your-secret-token',
+                        },
+                      }
+                    );
+                  }
+                })
+              );
               queryClient.invalidateQueries({ queryKey: ['urls'] });
             }}
           >
@@ -186,11 +226,9 @@ const Dashboard: React.FC = () => {
             getRowId={(row: UrlEntry) => row.id}
             checkboxSelection
             onRowClick={(params) => navigate(`/detail/${params.row.id}`)}
-            onRowSelectionModelChange={(newModel) => {
-              const model = newModel as GridRowSelectionModel;
-              if ('ids' in model) {
-                setSelectionIds(model.ids);
-              }
+            onRowSelectionModelChange={(newModel: GridRowSelectionModel) => {
+              const ids = Array.isArray(newModel) ? newModel : [newModel];
+              setSelectionIds(new Set(ids));
             }}
             initialState={{
               pagination: {
