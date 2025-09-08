@@ -15,15 +15,12 @@ export default function UrlDashboard() {
   const mutation = useMutation({
     mutationFn: mutateUrl,
     onMutate: async ({ url }) => {
-      // cancel any outgoing fetches
       await queryClient.cancelQueries({ queryKey: ['urls'] });
 
-      // snapshot previous value
       const prev = queryClient.getQueryData<UrlEntry[]>(['urls']);
 
-      // optimistic row
       const optimistic: UrlEntry = {
-        id: Date.now(), // temporary client-only id
+        id: Date.now(), 
         url,
         title: '',
         html_version: '',
@@ -32,7 +29,7 @@ export default function UrlDashboard() {
         external_links: 0,
         status: 'queued',
         created_at: new Date().toISOString(),
-        last_crawled: null, // make sure UrlEntry allows null
+        last_crawled: null, 
       };
 
       queryClient.setQueryData<UrlEntry[]>(['urls'], (old) =>
@@ -44,7 +41,7 @@ export default function UrlDashboard() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) {
-        queryClient.setQueryData(['urls'], ctx.prev); // rollback
+        queryClient.setQueryData(['urls'], ctx.prev); 
       }
     },
     onSettled: () => {
