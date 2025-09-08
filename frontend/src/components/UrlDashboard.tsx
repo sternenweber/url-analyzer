@@ -14,9 +14,41 @@ export default function UrlDashboard() {
 
   const mutation = useMutation({
     mutationFn: mutateUrl,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['urls'] });
+    onMutate: async ({ url }) => {
+      // cancel any outgoing fetches
+      await queryClient.cancelQueries({ queryKey: ['urls'] });
+
+      // snapshot previous value
+      const prev = queryClient.getQueryData<UrlEntry[]>(['urls']);
+
+      // optimistic row
+      const optimistic: UrlEntry = {
+        id: Date.now(), // temporary client-only id
+        url,
+        title: '',
+        html_version: '',
+        has_login: false,
+        internal_links: 0,
+        external_links: 0,
+        status: 'queued',
+        created_at: new Date().toISOString(),
+        last_crawled: null, // make sure UrlEntry allows null
+      };
+
+      queryClient.setQueryData<UrlEntry[]>(['urls'], (old) =>
+        old ? [optimistic, ...old] : [optimistic]
+      );
+
       setInputUrl('');
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(['urls'], ctx.prev); // rollback
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['urls'] });
     },
   });
 
@@ -35,7 +67,7 @@ export default function UrlDashboard() {
         placeholder="Enter website URL"
       />
       <button onClick={handleSubmit} disabled={mutation.isPending}>
-        Analyze
+        {mutation.isPending ? 'Analyzing...' : 'Analyze'}
       </button>
 
       {isLoading && <p>Loading...</p>}
@@ -66,7 +98,11 @@ export default function UrlDashboard() {
               <td>{entry.internal_links}</td>
               <td>{entry.external_links}</td>
               <td>{entry.status}</td>
-              <td>{entry.last_crawled ? new Date(entry.last_crawled).toLocaleString() : '–'}</td>
+              <td>
+                {entry.last_crawled
+                  ? new Date(entry.last_crawled).toLocaleString()
+                  : '–'}
+              </td>
             </tr>
           ))}
         </tbody>
