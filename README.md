@@ -23,21 +23,18 @@ A full-stack web application to analyze websites, extract metadata, and display 
 
 ## Getting Started
 
-### Backend
-
-```bash
-go run main.go
-```
-
-### Frontend
-
-```bash
-npm run dev
-```
+### Prerequisites
+- [Docker & Docker Compose](https://docs.docker.com/get-docker/)  
+- (Optional for dev) Node.js >= 18, Go >= 1.23, MySQL >= 8
 
 ---
 
-## Authorization
-This app uses a simple token-based authorization mechanism.
+### Run with Docker (recommended)
 
+From the project root:
+
+```bash
+docker compose build
+docker compose up -d
+```
 
